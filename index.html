@@ -133,7 +133,13 @@
         .time-badge { background-color: #1f242c; color: #00f2fe; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(0, 242, 254, 0.1); }
         .highlight-box { background-color: rgba(0, 242, 254, 0.04); border-left: 3px solid #00f2fe; padding: 14px; border-radius: 0 8px 8px 0; font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 14px; line-height: 1.4; }
         .footer-info { text-align: center; margin-top: 24px; font-size: 13px; color: #8b949e; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
-        .visitor-count strong { color: #00f2fe; font-size: 14px; }
+                .visitor-count strong { color: #00f2fe; font-size: 14px; }
+        .qa-message-hidden { display: none; }
+        .qa-reply { margin-top: 10px; }
+        .qa-reply summary { color: #00f2fe; font-size: 12px; cursor: pointer; font-weight: 600; }
+        .qa-reply-text { background: #0d1117; border-left: 2px solid #00f2fe; padding: 8px 10px; border-radius: 0 4px 4px 0; color: #fff; font-size: 12px; line-height: 1.4; margin-top: 8px; white-space: pre-wrap; }
+        .qa-load-more { width: 100%; background: #1f242c; border: 1px solid #00f2fe; color: #00f2fe; padding: 11px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .qa-load-more:hover { background: #222831; }
 
         /* --- SIFIR HATA POP-UP KODLARI --- */
         .modal-overlay {
@@ -481,9 +487,10 @@
 
                <!-- YANITLANAN SORULARIN GÖRÜNECEĞİ YER -->
         <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 15px; font-weight: 600;">📥 Yanıtlanan Sorular</h4>
-        <div id="approvedMessagesContainer" style="display: grid; gap: 15px;">
+                <div id="approvedMessagesContainer" style="display: grid; gap: 15px;">
             <p id="noMessageTxt" style="color: #555; font-size: 12px; font-style: italic;">Henüz yanıtlanan bir soru bulunmuyor.</p>
         </div>
+        <button id="qaLoadMoreBtn" class="qa-load-more" type="button" onclick="showMoreQA()" style="display: none; margin-top: 15px;">Daha fazla göster</button>
     </div>
 
            <!-- DOĞRUDAN HTTP API MOTORU - ONAYSIZ ANLIK YAYINLAMA SÜRÜMÜ 🛡️ -->
@@ -509,43 +516,49 @@
                 if (!response.ok) throw new Error("Veri çekme başarısız");
                 const data = await response.json();
 
-                const container = document.getElementById('approvedMessagesContainer');
+                                const container = document.getElementById('approvedMessagesContainer');
                 const noTxt = document.getElementById('noMessageTxt');
+                const loadMoreButton = document.getElementById('qaLoadMoreBtn');
                 
                 if (container) {
                     container.innerHTML = '';
+                    if (loadMoreButton) loadMoreButton.style.display = 'none';
                     if (data && data.length > 0) {
                         if(noTxt) noTxt.remove();
-                        data.forEach(msg => {
+                        data.forEach((msg, index) => {
                             const card = document.createElement('div');
-                            card.style.cssText = "background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; text-align: left; margin-bottom: 15px;";
-                                                        const title = document.createElement('div');
+                            card.className = 'qa-message-card';
+                            if (index >= 3) card.classList.add('qa-message-hidden');
+                            card.style.cssText = "background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; text-align: left;";
+
+                            const title = document.createElement('div');
                             title.style.cssText = "color: #00f2fe; font-weight: 600; font-size: 12px; margin-bottom: 5px;";
                             title.textContent = `📌 Başlık: ${msg.title || 'Başlık belirtilmemiş'}`;
 
                             const content = document.createElement('div');
-                            content.style.cssText = "color: #c9d1d9; font-size: 12px; margin-bottom: 8px; line-height: 1.4;";
+                            content.style.cssText = "color: #c9d1d9; font-size: 12px; line-height: 1.4;";
                             content.textContent = `💬 Gelen Soru: ${msg.content || ''}`;
 
-                            const replyBox = document.createElement('div');
-                            replyBox.style.cssText = "background: #0d1117; border-left: 2px solid #00f2fe; padding: 6px 8px; border-radius: 0 4px 4px 0;";
-
-                            const replyLabel = document.createElement('div');
-                            replyLabel.style.cssText = "color: #8b949e; font-size: 11px; font-weight: 600; margin-bottom: 2px;";
-                            replyLabel.textContent = "👤 Murat Şener'in Cevabı:";
-
+                            const replyDetails = document.createElement('details');
+                            replyDetails.className = 'qa-reply';
+                            const replySummary = document.createElement('summary');
+                            replySummary.textContent = "👤 Murat Şener'in cevabını göster";
                             const reply = document.createElement('div');
-                            reply.style.cssText = "color: #fff; font-size: 12px; line-height: 1.4;";
-                            reply.textContent = msg.reply || '👉 Yanıtınız bekleniyor, gün içinde değerlendirecektir. Desteğiniz için teşekkürler';
+                            reply.className = 'qa-reply-text';
+                            reply.textContent = msg.reply || 'Yanıtınız bekleniyor. Desteğiniz için teşekkürler.';
 
-                            replyBox.appendChild(replyLabel);
-                            replyBox.appendChild(reply);
+                            replyDetails.appendChild(replySummary);
+                            replyDetails.appendChild(reply);
                             card.appendChild(title);
                             card.appendChild(content);
-                            card.appendChild(replyBox);
+                            card.appendChild(replyDetails);
                             container.appendChild(card);
                         });
-                                        } else {
+                        if (loadMoreButton && data.length > 3) {
+                            loadMoreButton.style.display = 'block';
+                            loadMoreButton.textContent = `Daha fazla göster (${data.length - 3} kayıt)`;
+                        }
+                    } else {
                         const p = document.createElement('p');
                         p.id = 'noMessageTxt';
                         p.style.cssText = "color: #555; font-size: 14px; font-style: italic;";
@@ -554,6 +567,21 @@
                     }
                 }
             } catch (err) { console.error("Listeleme hatası:", err); }
+        }
+
+                function showMoreQA() {
+            const container = document.getElementById('approvedMessagesContainer');
+            const button = document.getElementById('qaLoadMoreBtn');
+            if (!container || !button) return;
+
+            const hiddenCards = container.querySelectorAll('.qa-message-hidden');
+            for (let i = 0; i < Math.min(5, hiddenCards.length); i++) {
+                hiddenCards[i].classList.remove('qa-message-hidden');
+            }
+
+            const remaining = container.querySelectorAll('.qa-message-hidden').length;
+            button.style.display = remaining ? 'block' : 'none';
+            if (remaining) button.textContent = `Daha fazla göster (${remaining} kayıt)`;
         }
 
         document.addEventListener('DOMContentLoaded', fetchQAData);
