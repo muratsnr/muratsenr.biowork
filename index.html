@@ -185,7 +185,8 @@
         .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: #8b949e; font-size: 18px; cursor: pointer; }
         .modal-box :focus-visible, .nested-item > [role="button"]:focus-visible { outline: 2px solid #00f2fe; outline-offset: 3px; }
         .modal-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-align: left; }
-        .modal-desc-static { font-size: 13px; color: #8b949e; margin-bottom: 14px; text-align: left; }
+                .modal-desc-static { font-size: 13px; color: #8b949e; margin-bottom: 14px; text-align: left; }
+        .modal-reading-time { color: #00f2fe; font-size: 11px; margin: -2px 0 12px; }
         .modal-content-scroll { background-color: #090d10; border: 1px solid #21262d; border-radius: 10px; padding: 14px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #c9d1d9; line-height: 1.5; margin-bottom: 20px; white-space: pre-wrap; text-align: left; }
                 .topic-rating { margin: 0 0 18px; padding: 12px; background: #090d10; border: 1px solid #21262d; border-radius: 10px; }
         .topic-rating-label { color: #c9d1d9; font-size: 13px; margin-bottom: 8px; }
@@ -277,11 +278,15 @@
                                 </select>
                 <button class="btn-action favorite-filter-button" id="favoriteFilterBtn" type="button" onclick="toggleFavoriteFilter()" aria-pressed="false">☆ Favorileri göster</button>
                 <button class="btn-action favorite-filter-button" id="updatedFilterBtn" type="button" onclick="toggleUpdatedFilter()" aria-pressed="false">↕ Son güncellenenler</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-action" type="button" onclick="exportFavorites('json')">Favorileri JSON indir</button>
+                    <button class="btn-action" type="button" onclick="exportFavorites('txt')">Favorileri TXT indir</button>
+                </div>
 
                   <div class="nested-list" id="itemsContainer">
-                    <!-- YENİ KONU EKLERKEN: data-category değerini yukarıdaki seçeneklerden biriyle eşleştir.
-                         data-updated alanına son güncelleme tarihini YYYY-AA-GG biçiminde yaz.
-                         Yeni etiketi için data-new="true" ekle; etiketi kaldırmak için bu alanı sil veya false yap. -->
+                                        <!-- YENİ KONU EKLERKEN: data-category değerini yukarıdaki seçeneklerden biriyle eşleştir.
+                         data-updated alanına son güncelleme tarihini, data-added alanına eklenme tarihini YYYY-AA-GG biçiminde yaz.
+                         Son 14 gün içinde eklenen konular otomatik olarak Yeni etiketi alır. -->
                     <div class="nested-item" onclick="openHtmlModal(this)" 
                     data-title="Threads Global Gündemi | 5-11 Ekim 2026" data-category="gundem" data-new="true" 
                     data-text="[5-11 Ekim 2026 EKİM THREADS GÜNDEM REHBERİ]&#10;&#10;• Topluluk Rozetleri ve nicesi..&#10;• Detaylara aşağıdan konuya giderek erişebilirsiniz." 
@@ -446,14 +451,14 @@
                          data-title="Konu başlığı"
                          data-text="Modalda gösterilecek açıklama"
                          data-link="https://www.threads.com/share/POST_ID/"
-                         data-category="gundem"
+                                                  data-category="gundem"
                          data-updated="YYYY-AA-GG"
-                         data-new="true">
+                         data-added="YYYY-AA-GG">
                         <div>Konu başlığı<div class="nested-sub-text">Kısa açıklama.</div></div>
                         <span class="time-badge">2 dk okuma</span>
                     </div>
-                    Kategori değerleri: gundem, guncellemeler, algoritma, guvenlik, ozellikler.
-                    Tarih biçimi YYYY-AA-GG olmalı. Yeni etiketi istemiyorsanız data-new alanını kaldırın. -->
+                                        Kategori değerleri: gundem, guncellemeler, algoritma, guvenlik, ozellikler.
+                    Tarih biçimi YYYY-AA-GG olmalı; son 14 günde eklenenler data-added ile otomatik Yeni olur. -->
 
                     
 
@@ -700,7 +705,8 @@
         <div class="modal-overlay" id="infoModal" onclick="closeInfoModal(event)" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
         <div class="modal-box" onclick="event.stopPropagation()" tabindex="-1">
             <button class="modal-close" type="button" aria-label="Rehber penceresini kapat" onclick="closeInfoModal(null)">✕</button>
-            <div class="modal-title" id="modalTitle">Başlık</div>
+                        <div class="modal-title" id="modalTitle">Başlık</div>
+            <div class="modal-reading-time" id="modalReadingTime"></div>
             <div class="highlight-box" id="modalHighlight">Vurgu Kutusu</div>
                         <div class="modal-content-scroll" id="modalText">İçerik</div>
             <div class="topic-rating" aria-label="Rehber puanlama">
@@ -877,6 +883,37 @@
             }
         }
 
+        function exportFavorites(format) {
+            const favoriteKeys = getFavoriteTopicKeys();
+            const topics = Array.from(document.querySelectorAll('#itemsContainer .nested-item'))
+                .filter((item) => favoriteKeys.includes(getTopicFavoriteKey(item)))
+                .map((item) => ({
+                    title: item.getAttribute('data-title') || '',
+                    description: (item.querySelector('.nested-sub-text') || {}).textContent || '',
+                    link: item.getAttribute('data-link') || ''
+                }));
+
+            if (!topics.length) {
+                showToast('Dışa aktarılacak favori rehber bulunamadı.');
+                return;
+            }
+
+            const isJson = format === 'json';
+            const content = isJson
+                ? JSON.stringify(topics, null, 2)
+                : topics.map((topic) => `${topic.title}\n${topic.description}\n${topic.link}`).join('\n\n');
+            const blob = new Blob([content], { type: isJson ? 'application/json;charset=utf-8' : 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `threads-favorilerim.${isJson ? 'json' : 'txt'}`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showToast('Favoriler dışa aktarıldı.');
+        }
+
         function updateFavoriteButton(button, isFavorite) {
             button.classList.toggle('active', isFavorite);
             button.textContent = isFavorite ? '★' : '☆';
@@ -941,7 +978,13 @@
                 categoryBadge.textContent = categoryLabels[category] || 'Diğer';
                 meta.appendChild(categoryBadge);
 
-                if (item.getAttribute('data-new') === 'true') {
+                                const addedDate = item.getAttribute('data-added') || '';
+                const addedAt = /^\d{4}-\d{2}-\d{2}$/.test(addedDate) ? new Date(`${addedDate}T00:00:00Z`) : null;
+                const ageDays = addedAt && !isNaN(addedAt.getTime())
+                    ? Math.floor((Date.now() - addedAt.getTime()) / 86400000)
+                    : null;
+                const isNew = ageDays !== null ? ageDays >= 0 && ageDays < 14 : item.getAttribute('data-new') === 'true';
+                if (isNew) {
                     const newBadge = document.createElement('span');
                     newBadge.className = 'topic-new-badge';
                     newBadge.textContent = 'Yeni';
@@ -1054,6 +1097,11 @@
         function getCurrentTopicKey() {
             if (!currentTopicElement) return '';
             return currentTopicElement.getAttribute('data-link') || currentTopicElement.getAttribute('data-title') || '';
+        }
+
+        function buildTopicShareUrl(topicElement) {
+            const topicLink = topicElement.getAttribute('data-link') || '';
+            return `${window.location.origin}${window.location.pathname}${window.location.search}#topic=${encodeURIComponent(topicLink)}`;
         }
 
         function getRatingVoterId() {
@@ -1243,6 +1291,23 @@
             context.font = '400 25px Arial, sans-serif';
             context.fillText('muratsenr  ·  Threads', 125, 1200);
 
+            const topicUrl = buildTopicShareUrl(currentTopicElement);
+            context.fillStyle = '#8b949e';
+            context.font = '400 17px Arial, sans-serif';
+            let urlLine = '';
+            let urlLineIndex = 0;
+            topicUrl.split('').forEach((character) => {
+                const candidate = urlLine + character;
+                if (context.measureText(candidate).width > 830 && urlLine) {
+                    if (urlLineIndex < 3) context.fillText(urlLine, 125, 1230 + urlLineIndex * 22);
+                    urlLineIndex += 1;
+                    urlLine = character;
+                } else {
+                    urlLine = candidate;
+                }
+            });
+            if (urlLineIndex < 3) context.fillText(urlLine, 125, 1230 + urlLineIndex * 22);
+
             try {
                 const blob = await new Promise((resolve, reject) => {
                     canvas.toBlob((imageBlob) => imageBlob ? resolve(imageBlob) : reject(new Error('Görsel oluşturulamadı')), 'image/png');
@@ -1270,8 +1335,7 @@
 
         async function shareCurrentTopic() {
             if (!currentTopicElement) return;
-            const topicLink = currentTopicElement.getAttribute('data-link') || '';
-            const shareUrl = `${window.location.origin}${window.location.pathname}${window.location.search}#topic=${encodeURIComponent(topicLink)}`;
+            const shareUrl = buildTopicShareUrl(currentTopicElement);
             const shareData = {
                 title: currentTopicElement.getAttribute('data-title') || 'Threads rehberi',
                 text: 'Bu Threads rehberine göz at:',
@@ -1294,6 +1358,10 @@
             if (!modal.classList.contains('active')) modalReturnFocus = document.activeElement;
             currentTopicElement = element;
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
+            const topicText = element.getAttribute('data-text') || '';
+            const wordCount = topicText.trim() ? topicText.trim().split(/\s+/).length : 0;
+            const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+            document.getElementById('modalReadingTime').textContent = `Yaklaşık ${readingMinutes} dk okuma`;
             const highlight = element.getAttribute('data-highlight') || '';
             const highlightBox = document.getElementById('modalHighlight');
             highlightBox.innerText = highlight;
@@ -1358,7 +1426,14 @@
                 const sharedLink = decodeURIComponent(location.hash.slice(7));
                 const sharedTopic = Array.from(document.querySelectorAll('#itemsContainer .nested-item'))
                     .find((item) => item.getAttribute('data-link') === sharedLink);
-                if (sharedTopic) openHtmlModal(sharedTopic);
+                if (sharedTopic) {
+                    const panel = document.getElementById('libraryPanel');
+                    if (panel) panel.classList.remove('hidden-content');
+                    const toggleButton = document.getElementById('toggleLibraryBtn');
+                    if (toggleButton) toggleButton.textContent = 'Konu Listesini Gizle ▴';
+                    sharedTopic.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    openHtmlModal(sharedTopic);
+                }
             }
                 } catch (e) {}
 
