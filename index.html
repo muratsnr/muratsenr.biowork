@@ -127,7 +127,10 @@
         .topic-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 10px; font-weight: 600; }
         .topic-category-badge { color: #8b949e; background: #12161a; border: 1px solid #30363d; padding: 3px 7px; border-radius: 6px; }
         .topic-new-badge { color: #090d10; background: #00f2fe; padding: 3px 7px; border-radius: 6px; }
-        .topic-updated { color: #8b949e; font-weight: 400; }
+                .topic-updated { color: #8b949e; font-weight: 400; }
+        .topic-favorite-button { flex-shrink: 0; background: transparent; border: 1px solid #30363d; border-radius: 8px; color: #8b949e; padding: 6px 9px; font-size: 17px; line-height: 1; cursor: pointer; }
+        .topic-favorite-button:hover, .topic-favorite-button.active { color: #ffd166; border-color: #ffd166; }
+        .favorite-filter-button { margin-top: 0; }
         .hidden-content { display: none; }
 
         .ai-select { width: 100%; background-color: #090d10; border: 1px solid #30363d; color: #ffffff; padding: 12px 14px; border-radius: 10px; font-size: 13px; outline: none; margin-bottom: 12px; cursor: pointer; }
@@ -269,7 +272,8 @@
                     <option value="algoritma">Algoritma ve Erişim</option>
                     <option value="guvenlik">Güvenlik ve Spam</option>
                     <option value="ozellikler">Özellikler ve Ayarlar</option>
-                </select>
+                                </select>
+                <button class="btn-action favorite-filter-button" id="favoriteFilterBtn" type="button" onclick="toggleFavoriteFilter()" aria-pressed="false">☆ Favorileri göster</button>
 
                   <div class="nested-list" id="itemsContainer">
                     <!-- YENİ KONU EKLERKEN: data-category değerini yukarıdaki seçeneklerden biriyle eşleştir.
@@ -845,13 +849,60 @@
             }
         }
 
-                const categoryLabels = {
+                        const categoryLabels = {
             gundem: 'Gündem',
             guncellemeler: 'Güncellemeler',
             algoritma: 'Algoritma ve erişim',
             guvenlik: 'Güvenlik ve spam',
             ozellikler: 'Özellikler ve ayarlar'
         };
+        let favoriteFilterOnly = false;
+
+        function getTopicFavoriteKey(item) {
+            return item.getAttribute('data-link') || item.getAttribute('data-title') || '';
+        }
+
+        function getFavoriteTopicKeys() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('favorite_topics') || '[]');
+                return Array.isArray(saved) ? saved : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function updateFavoriteButton(button, isFavorite) {
+            button.classList.toggle('active', isFavorite);
+            button.textContent = isFavorite ? '★' : '☆';
+            button.setAttribute('aria-pressed', isFavorite ? 'true' : 'false');
+            button.setAttribute('aria-label', isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle');
+            button.title = isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle';
+        }
+
+        function toggleTopicFavorite(item, button) {
+            const key = getTopicFavoriteKey(item);
+            if (!key) return;
+            const favorites = getFavoriteTopicKeys();
+            const index = favorites.indexOf(key);
+            if (index === -1) favorites.push(key);
+            else favorites.splice(index, 1);
+
+            try {
+                localStorage.setItem('favorite_topics', JSON.stringify(favorites));
+                updateFavoriteButton(button, index === -1);
+                if (favoriteFilterOnly) filterLibrary();
+            } catch (e) {
+                showToast('Favori bu tarayıcıda saklanamadı.');
+            }
+        }
+
+        function toggleFavoriteFilter() {
+            favoriteFilterOnly = !favoriteFilterOnly;
+            const button = document.getElementById('favoriteFilterBtn');
+            button.setAttribute('aria-pressed', favoriteFilterOnly ? 'true' : 'false');
+            button.textContent = favoriteFilterOnly ? '★ Yalnızca favoriler' : '☆ Favorileri göster';
+            filterLibrary();
+        }
 
         function getTopicCategory(item) {
             if (item.getAttribute('data-category')) return item.getAttribute('data-category');
@@ -893,20 +944,33 @@
                     meta.appendChild(updatedLabel);
                 }
 
-                const textBlock = item.querySelector('.nested-sub-text');
+                                const textBlock = item.querySelector('.nested-sub-text');
                 if (textBlock) textBlock.parentNode.appendChild(meta);
+
+                const favoriteButton = document.createElement('button');
+                favoriteButton.type = 'button';
+                favoriteButton.className = 'topic-favorite-button';
+                updateFavoriteButton(favoriteButton, getFavoriteTopicKeys().includes(getTopicFavoriteKey(item)));
+                favoriteButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleTopicFavorite(item, favoriteButton);
+                });
+                item.appendChild(favoriteButton);
             });
         }
 
         function filterLibrary() {
             const query = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
-            const selectedCategory = document.getElementById('categoryFilter').value;
+                        const selectedCategory = document.getElementById('categoryFilter').value;
+            const favorites = getFavoriteTopicKeys();
             const items = document.getElementById('itemsContainer').getElementsByClassName('nested-item');
             for (let i = 0; i < items.length; i++) {
                 const text = items[i].innerText.toLocaleLowerCase('tr-TR');
                 const matchesSearch = text.includes(query);
                 const matchesCategory = selectedCategory === 'all' || items[i].getAttribute('data-category') === selectedCategory;
-                items[i].style.display = matchesSearch && matchesCategory ? 'flex' : 'none';
+                const matchesFavorite = !favoriteFilterOnly || favorites.includes(getTopicFavoriteKey(items[i]));
+                items[i].style.display = matchesSearch && matchesCategory && matchesFavorite ? 'flex' : 'none';
             }
         }
 
