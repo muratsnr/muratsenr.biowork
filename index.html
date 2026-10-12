@@ -182,9 +182,16 @@
         .modal-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-align: left; }
         .modal-desc-static { font-size: 13px; color: #8b949e; margin-bottom: 14px; text-align: left; }
         .modal-content-scroll { background-color: #090d10; border: 1px solid #21262d; border-radius: 10px; padding: 14px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #c9d1d9; line-height: 1.5; margin-bottom: 20px; white-space: pre-wrap; text-align: left; }
+                .topic-rating { margin: 0 0 18px; padding: 12px; background: #090d10; border: 1px solid #21262d; border-radius: 10px; }
+        .topic-rating-label { color: #c9d1d9; font-size: 13px; margin-bottom: 8px; }
+        .topic-rating-stars { display: flex; gap: 8px; }
+        .topic-rating-star { background: transparent; border: 0; color: #59636e; font-size: 25px; line-height: 1; padding: 2px; cursor: pointer; }
+        .topic-rating-star:hover, .topic-rating-star.active { color: #ffd166; }
+        .topic-rating-status { color: #8b949e; font-size: 11px; margin-top: 8px; }
         .modal-buttons { display: flex; flex-direction: column; gap: 10px; }
         .btn-modal-primary { background: linear-gradient(45deg, #00c6ff, #00f2fe); color: #090d10; border: none; padding: 12px; border-radius: 25px; font-size: 14px; font-weight: 700; cursor: pointer; }
         .btn-modal-secondary { background-color: transparent; color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.3); padding: 12px; border-radius: 25px; font-size: 14px; font-weight: 600; text-align: center; text-decoration: none; display: block; }
+        .btn-modal-share { background: #1f242c; color: #e6edf3; border: 1px solid #30363d; padding: 12px; border-radius: 25px; font-size: 14px; font-weight: 600; cursor: pointer; }
         
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background-color: #00f2fe; color: #090d10; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; opacity: 0; transition: opacity 0.3s ease; z-index: 999999; pointer-events: none; }
     </style>
@@ -688,9 +695,21 @@
             <button class="modal-close" onclick="closeInfoModal(null)">✕</button>
             <div class="modal-title" id="modalTitle">Başlık</div>
             <div class="highlight-box" id="modalHighlight">Vurgu Kutusu</div>
-            <div class="modal-content-scroll" id="modalText">İçerik</div>
+                        <div class="modal-content-scroll" id="modalText">İçerik</div>
+            <div class="topic-rating" aria-label="Rehber puanlama">
+                <div class="topic-rating-label">Bu rehberi 1–5 yıldız arasında puanla</div>
+                <div class="topic-rating-stars" id="topicRatingStars">
+                    <button type="button" class="topic-rating-star" aria-label="1 yıldız" onclick="rateCurrentTopic(1)">★</button>
+                    <button type="button" class="topic-rating-star" aria-label="2 yıldız" onclick="rateCurrentTopic(2)">★</button>
+                    <button type="button" class="topic-rating-star" aria-label="3 yıldız" onclick="rateCurrentTopic(3)">★</button>
+                    <button type="button" class="topic-rating-star" aria-label="4 yıldız" onclick="rateCurrentTopic(4)">★</button>
+                    <button type="button" class="topic-rating-star" aria-label="5 yıldız" onclick="rateCurrentTopic(5)">★</button>
+                </div>
+                <div class="topic-rating-status" id="topicRatingStatus">Puanın yalnızca bu tarayıcıda saklanır.</div>
+            </div>
             <div class="modal-buttons">
                 <button class="btn-modal-primary" onclick="copyContentText()">📋 Metni Kopyala</button>
+                <button class="btn-modal-share" type="button" onclick="shareCurrentTopic()">🔗 Konu bağlantısını paylaş</button>
                 <a href="#" target="_blank" class="btn-modal-secondary" id="modalLink">▷ İlgili Gönderiyi Gör</a>
             </div>
         </div>
@@ -891,7 +910,32 @@
             }
         }
 
-        initializeTopicMetadata();
+                initializeTopicMetadata();
+
+        function sortTopicsByUpdatedDate() {
+            const container = document.getElementById('itemsContainer');
+            if (!container) return;
+            const items = Array.from(container.querySelectorAll('.nested-item'));
+            const originalOrder = new Map(items.map((item, index) => [item, index]));
+            const getTimestamp = (item) => {
+                const updated = item.getAttribute('data-updated');
+                if (!updated || !/^\d{4}-\d{2}-\d{2}$/.test(updated)) return null;
+                const timestamp = new Date(`${updated}T00:00:00`).getTime();
+                return isNaN(timestamp) ? null : timestamp;
+            };
+
+            items.sort((a, b) => {
+                const dateA = getTimestamp(a);
+                const dateB = getTimestamp(b);
+                if (dateA !== null && dateB !== null) return dateB - dateA;
+                if (dateA !== null) return -1;
+                if (dateB !== null) return 1;
+                return originalOrder.get(a) - originalOrder.get(b);
+            });
+            items.forEach((item) => container.appendChild(item));
+        }
+
+        sortTopicsByUpdatedDate();
 
         function scrollToElement(id) {
             const element = document.getElementById(id);
@@ -901,7 +945,73 @@
         const modal = document.getElementById('infoModal');
         const toast = document.getElementById('toastNotification');
 
+                let currentTopicElement = null;
+
+        function getCurrentTopicKey() {
+            if (!currentTopicElement) return '';
+            return currentTopicElement.getAttribute('data-link') || currentTopicElement.getAttribute('data-title') || '';
+        }
+
+        function renderTopicRating() {
+            const key = getCurrentTopicKey();
+            const stars = document.querySelectorAll('#topicRatingStars .topic-rating-star');
+            const status = document.getElementById('topicRatingStatus');
+            let rating = 0;
+            try {
+                rating = parseInt(localStorage.getItem(`topic_rating_${key}`), 10) || 0;
+            } catch (e) {}
+
+            stars.forEach((star, index) => {
+                star.classList.toggle('active', index < rating);
+                star.setAttribute('aria-pressed', index < rating ? 'true' : 'false');
+            });
+            if (status) {
+                status.textContent = rating ? `Puanın: ${rating}/5 · Bu puan yalnızca bu tarayıcıda saklanır.` : 'Puanın yalnızca bu tarayıcıda saklanır.';
+            }
+        }
+
+        function rateCurrentTopic(rating) {
+            const key = getCurrentTopicKey();
+            if (!key) return;
+            try {
+                localStorage.setItem(`topic_rating_${key}`, rating);
+                renderTopicRating();
+            } catch (e) {
+                const status = document.getElementById('topicRatingStatus');
+                if (status) status.textContent = 'Puan bu tarayıcıda saklanamadı.';
+            }
+        }
+
+        function showToast(message) {
+            toast.innerText = message;
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 2000);
+        }
+
+        async function shareCurrentTopic() {
+            if (!currentTopicElement) return;
+            const topicLink = currentTopicElement.getAttribute('data-link') || '';
+            const shareUrl = `${window.location.origin}${window.location.pathname}${window.location.search}#topic=${encodeURIComponent(topicLink)}`;
+            const shareData = {
+                title: currentTopicElement.getAttribute('data-title') || 'Threads rehberi',
+                text: 'Bu Threads rehberine göz at:',
+                url: shareUrl
+            };
+
+            try {
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    await navigator.clipboard.writeText(shareUrl);
+                    showToast('Konu bağlantısı kopyalandı!');
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') showToast('Bağlantı paylaşılamadı.');
+            }
+        }
+
         function openHtmlModal(element) {
+            currentTopicElement = element;
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
             const highlight = element.getAttribute('data-highlight') || '';
             const highlightBox = document.getElementById('modalHighlight');
@@ -909,6 +1019,7 @@
             highlightBox.style.display = highlight ? 'block' : 'none';
             document.getElementById('modalText').innerText = element.getAttribute('data-text');
             document.getElementById('modalLink').href = element.getAttribute('data-link');
+            renderTopicRating();
             modal.classList.add('active');
         }
 
@@ -916,7 +1027,7 @@
             if (!event || event.target === modal || event.type === 'click') { modal.classList.remove('active'); }
         }
 
-        function copyContentText() {
+                function copyContentText() {
             const textToCopy = document.getElementById('modalText').innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
                 toast.innerText = "Kopyalandı!";
@@ -924,6 +1035,15 @@
                 setTimeout(() => toast.style.opacity = '0', 2000);
             });
         }
+
+        try {
+            if (location.hash.indexOf('#topic=') === 0) {
+                const sharedLink = decodeURIComponent(location.hash.slice(7));
+                const sharedTopic = Array.from(document.querySelectorAll('#itemsContainer .nested-item'))
+                    .find((item) => item.getAttribute('data-link') === sharedLink);
+                if (sharedTopic) openHtmlModal(sharedTopic);
+            }
+        } catch (e) {}
 
         try {
             let localVisits = localStorage.getItem('local_visits') || 144;
