@@ -122,7 +122,12 @@
         
         .nested-item { background-color: #1c2128; border: 1px solid #30363d; padding: 14px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s ease; }
         .nested-item:hover { border-color: #00f2fe; background-color: #222831; transform: translateX(2px); }
-        .nested-sub-text { font-size: 11px; color: #8b949e; font-weight: 400; margin-top: 4px; }
+                .nested-sub-text { font-size: 11px; color: #8b949e; font-weight: 400; margin-top: 4px; }
+        .category-filter { width: 100%; background-color: #090d10; border: 1px solid #30363d; color: #ffffff; padding: 12px 14px; border-radius: 10px; font-size: 13px; outline: none; }
+        .topic-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 10px; font-weight: 600; }
+        .topic-category-badge { color: #8b949e; background: #12161a; border: 1px solid #30363d; padding: 3px 7px; border-radius: 6px; }
+        .topic-new-badge { color: #090d10; background: #00f2fe; padding: 3px 7px; border-radius: 6px; }
+        .topic-updated { color: #8b949e; font-weight: 400; }
         .hidden-content { display: none; }
 
         .ai-select { width: 100%; background-color: #090d10; border: 1px solid #30363d; color: #ffffff; padding: 12px 14px; border-radius: 10px; font-size: 13px; outline: none; margin-bottom: 12px; cursor: pointer; }
@@ -249,11 +254,22 @@
 
             <!-- AÇILIR PANEL -->
             <div id="libraryPanel" class="search-wrapper hidden-content">
-                <input type="text" id="searchInput" class="search-input" placeholder="Konularda hızlıca ara... (Örn: Eylül, Güncelleme, Bilgi, İpuçları vb.)" oninput="filterLibrary()">
+                                <input type="text" id="searchInput" class="search-input" placeholder="Konularda hızlıca ara... (Örn: Eylül, Güncelleme, Bilgi, İpuçları vb.)" oninput="filterLibrary()">
+                <select id="categoryFilter" class="category-filter" aria-label="Konu kategorisine göre filtrele" onchange="filterLibrary()">
+                    <option value="all">Tüm kategoriler</option>
+                    <option value="gundem">Gündem</option>
+                    <option value="guncellemeler">Güncellemeler</option>
+                    <option value="algoritma">Algoritma ve erişim</option>
+                    <option value="guvenlik">Güvenlik ve spam</option>
+                    <option value="ozellikler">Özellikler ve ayarlar</option>
+                </select>
 
                   <div class="nested-list" id="itemsContainer">
+                    <!-- YENİ KONU EKLERKEN: data-category değerini yukarıdaki seçeneklerden biriyle eşleştir.
+                         data-updated alanına son güncelleme tarihini YYYY-AA-GG biçiminde yaz.
+                         Yeni etiketi için data-new="true" ekle; etiketi kaldırmak için bu alanı sil veya false yap. -->
                     <div class="nested-item" onclick="openHtmlModal(this)" 
-                    data-title="Threads Global Gündemi | 5-11 Ekim 2026" 
+                    data-title="Threads Global Gündemi | 5-11 Ekim 2026" data-category="gundem" data-new="true" 
                     data-text="[5-11 Ekim 2026 EKİM THREADS GÜNDEM REHBERİ]&#10;&#10;• Topluluk Rozetleri ve nicesi..&#10;• Detaylara aşağıdan konuya giderek erişebilirsiniz." 
                                         data-link="https://www.threads.com/share/HtwKkOwoA/"><div>Threads Global Gündemi | 5-11 Ekim 2026<div class="nested-sub-text">Threads gündemde olanlar.
                     </div></div><span class="time-badge">5 dk okuma</span></div>
@@ -406,10 +422,24 @@
                     data-link="https://www.threads.com/share/DYcHYaV8r/"><div>Nedir bu Threadsda ki şapka..?<div class="nested-sub-text">Şapka amacı.</div>
                     </div><span class="time-badge">1 dk okuma</span></div>
 
-                     <div class="nested-item" onclick="openHtmlModal(this)" data-title="17-19?"
+                                          <div class="nested-item" onclick="openHtmlModal(this)" data-title="17-19?"
                     data-text="[Spoiler Yapımı]&#10;&#10;• Biraz sinir bozucu ama biraz da zevkli, gizemli.. &#10;• Detaylara aşağıdan konuya giderek erişebilirsiniz."
                     data-link="https://www.threads.com/share/Hr_Qn9KrJ/"><div> Spoiler Yapımı <div class="nested-sub-text">Spoiler ile yorum yada resminizi gizleyin..</div>
                     </div><span class="time-badge">1 dk okuma</span></div>
+
+                    <!-- YENİ KONU EKLEME ŞABLONU: Kopyalayıp yukarıdaki konuların arasına ekleyin.
+                    <div class="nested-item" onclick="openHtmlModal(this)"
+                         data-title="Konu başlığı"
+                         data-text="Modalda gösterilecek açıklama"
+                         data-link="https://www.threads.com/share/POST_ID/"
+                         data-category="gundem"
+                         data-updated="YYYY-AA-GG"
+                         data-new="true">
+                        <div>Konu başlığı<div class="nested-sub-text">Kısa açıklama.</div></div>
+                        <span class="time-badge">2 dk okuma</span>
+                    </div>
+                    Kategori değerleri: gundem, guncellemeler, algoritma, guvenlik, ozellikler.
+                    Tarih biçimi YYYY-AA-GG olmalı. Yeni etiketi istemiyorsanız data-new alanını kaldırın. -->
 
                     
 
@@ -796,14 +826,72 @@
             }
         }
 
+                const categoryLabels = {
+            gundem: 'Gündem',
+            guncellemeler: 'Güncellemeler',
+            algoritma: 'Algoritma ve erişim',
+            guvenlik: 'Güvenlik ve spam',
+            ozellikler: 'Özellikler ve ayarlar'
+        };
+
+        function getTopicCategory(item) {
+            if (item.getAttribute('data-category')) return item.getAttribute('data-category');
+            const title = (item.getAttribute('data-title') || item.innerText).toLocaleLowerCase('tr-TR');
+            if (title.includes('gündem')) return 'gundem';
+            if (title.includes('güncelleme') || title.includes('testler')) return 'guncellemeler';
+            if (title.includes('spam') || title.includes('usulsüz') || title.includes('bot') || title.includes('engellenen')) return 'guvenlik';
+            if (title.includes('görüntülenme') || title.includes('akış') || title.includes('etkileşim')) return 'algoritma';
+            return 'ozellikler';
+        }
+
+        function initializeTopicMetadata() {
+            const items = document.querySelectorAll('#itemsContainer .nested-item');
+            items.forEach((item) => {
+                const category = getTopicCategory(item);
+                item.setAttribute('data-category', category);
+
+                const meta = document.createElement('div');
+                meta.className = 'topic-meta';
+                const categoryBadge = document.createElement('span');
+                categoryBadge.className = 'topic-category-badge';
+                categoryBadge.textContent = categoryLabels[category] || 'Diğer';
+                meta.appendChild(categoryBadge);
+
+                if (item.getAttribute('data-new') === 'true') {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'topic-new-badge';
+                    newBadge.textContent = 'Yeni';
+                    meta.appendChild(newBadge);
+                }
+
+                const updated = item.getAttribute('data-updated');
+                if (updated) {
+                    const updatedLabel = document.createElement('span');
+                    updatedLabel.className = 'topic-updated';
+                    const date = new Date(`${updated}T00:00:00`);
+                    const formattedDate = isNaN(date.getTime()) ? updated : new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
+                    updatedLabel.textContent = `Güncellendi: ${formattedDate}`;
+                    meta.appendChild(updatedLabel);
+                }
+
+                const textBlock = item.querySelector('.nested-sub-text');
+                if (textBlock) textBlock.parentNode.appendChild(meta);
+            });
+        }
+
         function filterLibrary() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
+            const query = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
+            const selectedCategory = document.getElementById('categoryFilter').value;
             const items = document.getElementById('itemsContainer').getElementsByClassName('nested-item');
             for (let i = 0; i < items.length; i++) {
-                const text = items[i].innerText.toLowerCase();
-                items[i].style.display = text.includes(query) ? 'flex' : 'none';
+                const text = items[i].innerText.toLocaleLowerCase('tr-TR');
+                const matchesSearch = text.includes(query);
+                const matchesCategory = selectedCategory === 'all' || items[i].getAttribute('data-category') === selectedCategory;
+                items[i].style.display = matchesSearch && matchesCategory ? 'flex' : 'none';
             }
         }
+
+        initializeTopicMetadata();
 
         function scrollToElement(id) {
             const element = document.getElementById(id);
