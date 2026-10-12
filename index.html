@@ -239,7 +239,7 @@
             <div class="card-title">Paylaşılan Bilgi ve Ayarlar</div>
             <div class="card-desc">Paylaştığım tüm güncellemeler, ipuçları ve bilgiler aşağıda listelenmiştir. Konu başlığına tıklayarak detaylara erişebilirsiniz.</div>
             
-            <button class="btn-action" id="toggleLibraryBtn" onclick="toggleLibrary()">Konu Listesini Göster (+10) ▾</button>
+            <button class="btn-action" id="toggleLibraryBtn" onclick="toggleLibrary()">Konu Listesini Göster ▾</button>
 
             <!-- AÇILIR PANEL -->
             <div id="libraryPanel" class="search-wrapper hidden-content">
@@ -412,9 +412,10 @@
 
        
 
-  <!-- Paylaşılan Bilgi ve Ayarlar Listesinin Bittiği Yer (Örnek Kapanış) -->
-</div> 
-</div> 
+    <!-- Paylaşılan Bilgi ve Ayarlar Listesinin Bittiği Yer -->
+</div>
+</div>
+</div>
 
 <div id="independentContactSection" style="margin-top: 50px; padding-top: 25px; border-top: 1px dashed rgba(255,255,255,0.15);">
     
@@ -518,22 +519,37 @@
                         data.forEach(msg => {
                             const card = document.createElement('div');
                             card.style.cssText = "background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; text-align: left; margin-bottom: 15px;";
-                            card.innerHTML = `
-    <div style="color: #00f2fe; font-weight: 600; font-size: 12px; margin-bottom: 5px;">📌 Başlık: ${msg.title || '📌 Başlık'}</div>
-    <div style="color: #c9d1d9; font-size: 12px; margin-bottom: 8px; line-height: 1.4;">💬 Gelen Soru: ${msg.content || ''}</div>
-    <div style="background: #0d1117; border-left: 2px solid #00f2fe; padding: 6px 8px; border-radius: 0 4px 4px 0;">
-        <div style="color: #8b949e; font-size: 11px; font-weight: 600; margin-bottom: 2px;">👤 Murat Şener'in Cevabı:</div>
-        <div style="color: #fff; font-size: 12px; line-height: 1.4;">${msg.reply || '👉 Yanıtınız bekleniyor, gün içinde değerlendirecektir. Desteğiniz için teşekkürler '}</div>
-    </div>
-`;
+                                                        const title = document.createElement('div');
+                            title.style.cssText = "color: #00f2fe; font-weight: 600; font-size: 12px; margin-bottom: 5px;";
+                            title.textContent = `📌 Başlık: ${msg.title || 'Başlık belirtilmemiş'}`;
 
+                            const content = document.createElement('div');
+                            content.style.cssText = "color: #c9d1d9; font-size: 12px; margin-bottom: 8px; line-height: 1.4;";
+                            content.textContent = `💬 Gelen Soru: ${msg.content || ''}`;
+
+                            const replyBox = document.createElement('div');
+                            replyBox.style.cssText = "background: #0d1117; border-left: 2px solid #00f2fe; padding: 6px 8px; border-radius: 0 4px 4px 0;";
+
+                            const replyLabel = document.createElement('div');
+                            replyLabel.style.cssText = "color: #8b949e; font-size: 11px; font-weight: 600; margin-bottom: 2px;";
+                            replyLabel.textContent = "👤 Murat Şener'in Cevabı:";
+
+                            const reply = document.createElement('div');
+                            reply.style.cssText = "color: #fff; font-size: 12px; line-height: 1.4;";
+                            reply.textContent = msg.reply || '👉 Yanıtınız bekleniyor, gün içinde değerlendirecektir. Desteğiniz için teşekkürler';
+
+                            replyBox.appendChild(replyLabel);
+                            replyBox.appendChild(reply);
+                            card.appendChild(title);
+                            card.appendChild(content);
+                            card.appendChild(replyBox);
                             container.appendChild(card);
                         });
-                    } else if(!noTxt) {
+                                        } else {
                         const p = document.createElement('p');
                         p.id = 'noMessageTxt';
                         p.style.cssText = "color: #555; font-size: 14px; font-style: italic;";
-                        p.innerText = "Henüz gönderilen bir soru bulunmuyor.";
+                        p.textContent = "Henüz gönderilen bir soru bulunmuyor.";
                         container.appendChild(p);
                     }
                 }
@@ -739,15 +755,16 @@
             }
         }
 
-        function toggleLibrary() {
+                function toggleLibrary() {
             const panel = document.getElementById('libraryPanel');
             const btn = document.getElementById('toggleLibraryBtn');
+            const itemCount = document.querySelectorAll('#itemsContainer .nested-item').length;
             if (panel.classList.contains('hidden-content')) {
                 panel.classList.remove('hidden-content');
                 btn.innerText = 'Konu Listesini Gizle ▴';
             } else {
                 panel.classList.add('hidden-content');
-                btn.innerText = 'Konu Listesini Göster ▾';
+                btn.innerText = `Konu Listesini Göster (${itemCount}) ▾`;
             }
         }
 
@@ -770,7 +787,10 @@
 
         function openHtmlModal(element) {
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
-            document.getElementById('modalHighlight').innerText = element.getAttribute('data-highlight');
+            const highlight = element.getAttribute('data-highlight') || '';
+            const highlightBox = document.getElementById('modalHighlight');
+            highlightBox.innerText = highlight;
+            highlightBox.style.display = highlight ? 'block' : 'none';
             document.getElementById('modalText').innerText = element.getAttribute('data-text');
             document.getElementById('modalLink').href = element.getAttribute('data-link');
             modal.classList.add('active');
