@@ -274,6 +274,7 @@
                     <option value="ozellikler">Özellikler ve Ayarlar</option>
                                 </select>
                 <button class="btn-action favorite-filter-button" id="favoriteFilterBtn" type="button" onclick="toggleFavoriteFilter()" aria-pressed="false">☆ Favorileri göster</button>
+                <button class="btn-action favorite-filter-button" id="updatedFilterBtn" type="button" onclick="toggleUpdatedFilter()" aria-pressed="false">↕ Son güncellenenler</button>
 
                   <div class="nested-list" id="itemsContainer">
                     <!-- YENİ KONU EKLERKEN: data-category değerini yukarıdaki seçeneklerden biriyle eşleştir.
@@ -709,7 +710,8 @@
                     <button type="button" class="topic-rating-star" aria-label="4 yıldız" onclick="rateCurrentTopic(4)">★</button>
                     <button type="button" class="topic-rating-star" aria-label="5 yıldız" onclick="rateCurrentTopic(5)">★</button>
                 </div>
-                <div class="topic-rating-status" id="topicRatingStatus">Puanın yalnızca bu tarayıcıda saklanır.</div>
+                <div class="topic-rating-status" id="topicRatingStatus">Puanın bu tarayıcıda saklanır.</div>
+                <div class="topic-rating-status" id="topicRatingSummary" aria-live="polite">Ortak puan yükleniyor...</div>
             </div>
             <div class="modal-buttons">
                 <button class="btn-modal-primary" onclick="copyContentText()">📋 Metni Kopyala</button>
@@ -857,6 +859,7 @@
             ozellikler: 'Özellikler ve ayarlar'
         };
         let favoriteFilterOnly = false;
+        let updatedFilterOnly = false;
 
         function getTopicFavoriteKey(item) {
             return item.getAttribute('data-link') || item.getAttribute('data-title') || '';
@@ -901,6 +904,14 @@
             const button = document.getElementById('favoriteFilterBtn');
             button.setAttribute('aria-pressed', favoriteFilterOnly ? 'true' : 'false');
             button.textContent = favoriteFilterOnly ? '★ Yalnızca favoriler' : '☆ Favorileri göster';
+            filterLibrary();
+        }
+
+        function toggleUpdatedFilter() {
+            updatedFilterOnly = !updatedFilterOnly;
+            const button = document.getElementById('updatedFilterBtn');
+            button.setAttribute('aria-pressed', updatedFilterOnly ? 'true' : 'false');
+            button.textContent = updatedFilterOnly ? '↕ Tarihli konuları göster' : '↕ Son güncellenenler';
             filterLibrary();
         }
 
@@ -960,6 +971,13 @@
             });
         }
 
+                function hasValidUpdatedDate(item) {
+            const updated = item.getAttribute('data-updated') || '';
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(updated)) return false;
+            const date = new Date(`${updated}T00:00:00Z`);
+            return !isNaN(date.getTime()) && date.toISOString().slice(0, 10) === updated;
+        }
+
         function filterLibrary() {
             const query = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
                         const selectedCategory = document.getElementById('categoryFilter').value;
@@ -970,7 +988,8 @@
                 const matchesSearch = text.includes(query);
                 const matchesCategory = selectedCategory === 'all' || items[i].getAttribute('data-category') === selectedCategory;
                 const matchesFavorite = !favoriteFilterOnly || favorites.includes(getTopicFavoriteKey(items[i]));
-                items[i].style.display = matchesSearch && matchesCategory && matchesFavorite ? 'flex' : 'none';
+                const matchesUpdated = !updatedFilterOnly || hasValidUpdatedDate(items[i]);
+                items[i].style.display = matchesSearch && matchesCategory && matchesFavorite && matchesUpdated ? 'flex' : 'none';
             }
         }
 
@@ -1010,16 +1029,49 @@
         const toast = document.getElementById('toastNotification');
 
                 let currentTopicElement = null;
+        const RATING_SB_URL = 'https://tplpivnsxngeekqbbgyh.supabase.co';
+        const RATING_SB_KEY = 'sb_publishable_aG3JTIwogS3J9hmtetax4Q_5itN5cJ5';
+        let sharedTopicRatings = {};
 
         function getCurrentTopicKey() {
             if (!currentTopicElement) return '';
             return currentTopicElement.getAttribute('data-link') || currentTopicElement.getAttribute('data-title') || '';
         }
 
+        function getRatingVoterId() {
+            let voterId = localStorage.getItem('topic_rating_voter_id');
+            if (!voterId) {
+                voterId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+                localStorage.setItem('topic_rating_voter_id', voterId);
+            }
+            return voterId;
+        }
+
+        async function loadSharedTopicRatings() {
+            const summary = document.getElementById('topicRatingSummary');
+            try {
+                const response = await fetch(`${RATING_SB_URL}/rest/v1/topic_ratings?select=topic_key,rating`, {
+                    headers: { 'apikey': RATING_SB_KEY, 'Authorization': `Bearer ${RATING_SB_KEY}` }
+                });
+                if (!response.ok) throw new Error('Puanlar yüklenemedi');
+                const rows = await response.json();
+                sharedTopicRatings = {};
+                rows.forEach((row) => {
+                    if (!sharedTopicRatings[row.topic_key]) sharedTopicRatings[row.topic_key] = { total: 0, count: 0 };
+                    sharedTopicRatings[row.topic_key].total += Number(row.rating) || 0;
+                    sharedTopicRatings[row.topic_key].count += 1;
+                });
+                renderTopicRating();
+            } catch (e) {
+                if (summary) summary.textContent = 'Ortak puanlar şu an alınamadı. Puan tablosu kurulmuş olmalı.';
+            }
+        }
+
         function renderTopicRating() {
             const key = getCurrentTopicKey();
             const stars = document.querySelectorAll('#topicRatingStars .topic-rating-star');
             const status = document.getElementById('topicRatingStatus');
+            const summary = document.getElementById('topicRatingSummary');
             let rating = 0;
             try {
                 rating = parseInt(localStorage.getItem(`topic_rating_${key}`), 10) || 0;
@@ -1030,19 +1082,39 @@
                 star.setAttribute('aria-pressed', index < rating ? 'true' : 'false');
             });
             if (status) {
-                status.textContent = rating ? `Puanın: ${rating}/5 · Bu puan yalnızca bu tarayıcıda saklanır.` : 'Puanın yalnızca bu tarayıcıda saklanır.';
+                status.textContent = rating ? `Senin puanın: ${rating}/5` : 'Yıldız seçerek puan verebilirsin.';
+            }
+            if (summary) {
+                const aggregate = sharedTopicRatings[key];
+                summary.textContent = aggregate && aggregate.count
+                    ? `Ortalama: ${(aggregate.total / aggregate.count).toFixed(1)}/5 · ${aggregate.count} puan`
+                    : 'Henüz ortak puan yok.';
             }
         }
 
-        function rateCurrentTopic(rating) {
+        async function rateCurrentTopic(rating) {
             const key = getCurrentTopicKey();
             if (!key) return;
+            const status = document.getElementById('topicRatingStatus');
             try {
                 localStorage.setItem(`topic_rating_${key}`, rating);
                 renderTopicRating();
+                if (status) status.textContent = 'Puan gönderiliyor...';
+                const response = await fetch(`${RATING_SB_URL}/rest/v1/topic_ratings?on_conflict=topic_key,voter_id`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': RATING_SB_KEY,
+                        'Authorization': `Bearer ${RATING_SB_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates,return=minimal'
+                    },
+                    body: JSON.stringify({ topic_key: key, voter_id: getRatingVoterId(), rating: rating })
+                });
+                if (!response.ok) throw new Error('Puan kaydedilemedi');
+                if (status) status.textContent = `Puanın: ${rating}/5 · Ortak puana eklendi.`;
+                await loadSharedTopicRatings();
             } catch (e) {
-                const status = document.getElementById('topicRatingStatus');
-                if (status) status.textContent = 'Puan bu tarayıcıda saklanamadı.';
+                if (status) status.textContent = 'Puan bu cihazda saklandı; ortak kaydedilemedi.';
             }
         }
 
@@ -1107,7 +1179,9 @@
                     .find((item) => item.getAttribute('data-link') === sharedLink);
                 if (sharedTopic) openHtmlModal(sharedTopic);
             }
-        } catch (e) {}
+                } catch (e) {}
+
+        loadSharedTopicRatings();
 
         try {
             let localVisits = localStorage.getItem('local_visits') || 144;
