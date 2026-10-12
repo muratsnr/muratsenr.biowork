@@ -152,6 +152,7 @@
         /* --- SIFIR HATA POP-UP KODLARI --- */
         .modal-overlay {
             position: fixed;
+            visibility: hidden;
             top: 0; left: 0; right: 0; bottom: 0;
             background-color: rgba(5, 8, 10, 0.85);
             backdrop-filter: blur(8px);
@@ -163,10 +164,10 @@
             z-index: 99999;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease;
+                        transition: opacity 0.3s ease, visibility 0s linear 0.3s;
         }
         
-        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; visibility: visible; transition-delay: 0s; }
 
         .modal-box {
             background-color: #12161a;
@@ -182,6 +183,7 @@
         
         .modal-overlay.active .modal-box { transform: scale(1); }
         .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: #8b949e; font-size: 18px; cursor: pointer; }
+        .modal-box :focus-visible, .nested-item > [role="button"]:focus-visible { outline: 2px solid #00f2fe; outline-offset: 3px; }
         .modal-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-align: left; }
         .modal-desc-static { font-size: 13px; color: #8b949e; margin-bottom: 14px; text-align: left; }
         .modal-content-scroll { background-color: #090d10; border: 1px solid #21262d; border-radius: 10px; padding: 14px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #c9d1d9; line-height: 1.5; margin-bottom: 20px; white-space: pre-wrap; text-align: left; }
@@ -695,9 +697,9 @@
 
 
     <!-- POP-UP MODAL -->
-    <div class="modal-overlay" id="infoModal" onclick="closeInfoModal(event)">
-        <div class="modal-box" onclick="event.stopPropagation()">
-            <button class="modal-close" onclick="closeInfoModal(null)">✕</button>
+        <div class="modal-overlay" id="infoModal" onclick="closeInfoModal(event)" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-box" onclick="event.stopPropagation()" tabindex="-1">
+            <button class="modal-close" type="button" aria-label="Rehber penceresini kapat" onclick="closeInfoModal(null)">✕</button>
             <div class="modal-title" id="modalTitle">Başlık</div>
             <div class="highlight-box" id="modalHighlight">Vurgu Kutusu</div>
                         <div class="modal-content-scroll" id="modalText">İçerik</div>
@@ -716,6 +718,7 @@
             <div class="modal-buttons">
                 <button class="btn-modal-primary" onclick="copyContentText()">📋 Metni Kopyala</button>
                 <button class="btn-modal-share" type="button" onclick="shareCurrentTopic()">🔗 Konu bağlantısını paylaş</button>
+                <button class="btn-modal-share" type="button" onclick="shareTopicImage()">🖼️ Paylaşım kartı oluştur</button>
                 <a href="#" target="_blank" class="btn-modal-secondary" id="modalLink">▷ İlgili Gönderiyi Gör</a>
             </div>
         </div>
@@ -958,6 +961,20 @@
                                 const textBlock = item.querySelector('.nested-sub-text');
                 if (textBlock) textBlock.parentNode.appendChild(meta);
 
+                const topicTrigger = item.firstElementChild;
+                if (topicTrigger) {
+                    topicTrigger.setAttribute('role', 'button');
+                    topicTrigger.setAttribute('tabindex', '0');
+                    topicTrigger.setAttribute('aria-haspopup', 'dialog');
+                    topicTrigger.setAttribute('aria-label', `${item.getAttribute('data-title') || 'Rehber'} ayrıntılarını aç`);
+                    topicTrigger.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            openHtmlModal(item);
+                        }
+                    });
+                }
+
                 const favoriteButton = document.createElement('button');
                 favoriteButton.type = 'button';
                 favoriteButton.className = 'topic-favorite-button';
@@ -1029,6 +1046,7 @@
         const toast = document.getElementById('toastNotification');
 
                 let currentTopicElement = null;
+        let modalReturnFocus = null;
         const RATING_SB_URL = 'https://tplpivnsxngeekqbbgyh.supabase.co';
         const RATING_SB_KEY = 'sb_publishable_aG3JTIwogS3J9hmtetax4Q_5itN5cJ5';
         let sharedTopicRatings = {};
@@ -1124,6 +1142,132 @@
             setTimeout(() => toast.style.opacity = '0', 2000);
         }
 
+        async function shareTopicImage() {
+            if (!currentTopicElement) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 1080;
+            canvas.height = 1350;
+            const context = canvas.getContext('2d');
+            if (!context) {
+                showToast('Görsel kartı oluşturulamadı.');
+                return;
+            }
+
+            const title = currentTopicElement.getAttribute('data-title') || 'Threads rehberi';
+            const description = currentTopicElement.querySelector('.nested-sub-text');
+            const subtitle = description ? description.textContent.trim() : 'Threads bilgi bankasından bir rehber';
+
+            context.fillStyle = '#090d10';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            const glow = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+            glow.addColorStop(0, 'rgba(0, 198, 255, 0.22)');
+            glow.addColorStop(1, 'rgba(191, 85, 236, 0.12)');
+            context.fillStyle = glow;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cardX = 70;
+            const cardY = 70;
+            const cardWidth = 940;
+            const cardHeight = 1210;
+            context.fillStyle = '#12161a';
+            context.strokeStyle = 'rgba(0, 242, 254, 0.45)';
+            context.lineWidth = 3;
+            context.beginPath();
+            context.moveTo(cardX + 42, cardY);
+            context.lineTo(cardX + cardWidth - 42, cardY);
+            context.quadraticCurveTo(cardX + cardWidth, cardY, cardX + cardWidth, cardY + 42);
+            context.lineTo(cardX + cardWidth, cardY + cardHeight - 42);
+            context.quadraticCurveTo(cardX + cardWidth, cardY + cardHeight, cardX + cardWidth - 42, cardY + cardHeight);
+            context.lineTo(cardX + 42, cardY + cardHeight);
+            context.quadraticCurveTo(cardX, cardY + cardHeight, cardX, cardY + cardHeight - 42);
+            context.lineTo(cardX, cardY + 42);
+            context.quadraticCurveTo(cardX, cardY, cardX + 42, cardY);
+            context.closePath();
+            context.fill();
+            context.stroke();
+
+            context.fillStyle = '#00f2fe';
+            context.font = '700 30px Arial, sans-serif';
+            context.fillText('MURAT ŞENER  ·  THREADS BİLGİ BANKASI', 125, 170);
+
+            context.fillStyle = '#ffffff';
+            context.font = '700 64px Arial, sans-serif';
+            const words = title.split(/\s+/);
+            const lines = [];
+            let line = '';
+            words.forEach((word) => {
+                const testLine = line ? `${line} ${word}` : word;
+                if (context.measureText(testLine).width > 820 && line) {
+                    lines.push(line);
+                    line = word;
+                } else {
+                    line = testLine;
+                }
+            });
+            if (line) lines.push(line);
+            lines.slice(0, 6).forEach((text, index) => {
+                context.fillText(text, 125, 330 + index * 86);
+            });
+
+            const descriptionY = Math.min(930, 390 + Math.min(lines.length, 6) * 86);
+            context.fillStyle = '#8b949e';
+            context.font = '400 34px Arial, sans-serif';
+            const descriptionWords = subtitle.split(/\s+/);
+            const descriptionLines = [];
+            let descriptionLine = '';
+            descriptionWords.forEach((word) => {
+                const testLine = descriptionLine ? `${descriptionLine} ${word}` : word;
+                if (context.measureText(testLine).width > 820 && descriptionLine) {
+                    descriptionLines.push(descriptionLine);
+                    descriptionLine = word;
+                } else {
+                    descriptionLine = testLine;
+                }
+            });
+            if (descriptionLine) descriptionLines.push(descriptionLine);
+            descriptionLines.slice(0, 4).forEach((text, index) => {
+                context.fillText(text, 125, descriptionY + index * 52);
+            });
+
+            context.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+            context.lineWidth = 2;
+            context.beginPath();
+            context.moveTo(125, 1080);
+            context.lineTo(955, 1080);
+            context.stroke();
+            context.fillStyle = '#00f2fe';
+            context.font = '600 28px Arial, sans-serif';
+            context.fillText('Rehberin tamamı için profili ziyaret et', 125, 1145);
+            context.fillStyle = '#8b949e';
+            context.font = '400 25px Arial, sans-serif';
+            context.fillText('muratsenr  ·  Threads', 125, 1200);
+
+            try {
+                const blob = await new Promise((resolve, reject) => {
+                    canvas.toBlob((imageBlob) => imageBlob ? resolve(imageBlob) : reject(new Error('Görsel oluşturulamadı')), 'image/png');
+                });
+                const file = typeof File !== 'undefined'
+                    ? new File([blob], 'threads-rehber-karti.png', { type: 'image/png' })
+                    : null;
+                if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ title: title, text: 'Threads rehber kartı', files: [file] });
+                } else {
+                    const imageUrl = URL.createObjectURL(blob);
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = imageUrl;
+                    downloadLink.download = 'threads-rehber-karti.png';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    downloadLink.remove();
+                    setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+                    showToast('Paylaşım kartı PNG olarak indirildi.');
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') showToast('Paylaşım kartı oluşturulamadı.');
+            }
+        }
+
         async function shareCurrentTopic() {
             if (!currentTopicElement) return;
             const topicLink = currentTopicElement.getAttribute('data-link') || '';
@@ -1147,6 +1291,7 @@
         }
 
         function openHtmlModal(element) {
+            if (!modal.classList.contains('active')) modalReturnFocus = document.activeElement;
             currentTopicElement = element;
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
             const highlight = element.getAttribute('data-highlight') || '';
@@ -1155,13 +1300,49 @@
             highlightBox.style.display = highlight ? 'block' : 'none';
             document.getElementById('modalText').innerText = element.getAttribute('data-text');
             document.getElementById('modalLink').href = element.getAttribute('data-link');
-            renderTopicRating();
+                        renderTopicRating();
+            modal.setAttribute('aria-hidden', 'false');
             modal.classList.add('active');
+            modal.querySelector('.modal-close').focus();
         }
 
         function closeInfoModal(event) {
-            if (!event || event.target === modal || event.type === 'click') { modal.classList.remove('active'); }
+            if (event && event.target !== modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            if (modalReturnFocus && typeof modalReturnFocus.focus === 'function' && modalReturnFocus.isConnected) {
+                modalReturnFocus.focus();
+            }
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (!modal.classList.contains('active')) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeInfoModal(null);
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const focusable = Array.from(modal.querySelectorAll(
+                'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )).filter((element) => element.offsetParent !== null);
+            if (!focusable.length) {
+                event.preventDefault();
+                modal.querySelector('.modal-box').focus();
+                return;
+            }
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
                 function copyContentText() {
             const textToCopy = document.getElementById('modalText').innerText;
