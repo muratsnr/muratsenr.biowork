@@ -183,8 +183,18 @@
         .modal-box :focus-visible, .nested-item > [role="button"]:focus-visible { outline: 2px solid #00f2fe; outline-offset: 3px; }
         .modal-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-align: left; }
                 .modal-desc-static { font-size: 13px; color: #8b949e; margin-bottom: 14px; text-align: left; }
-        .modal-reading-time { color: #00f2fe; font-size: 11px; margin: -2px 0 12px; }
+                .modal-reading-time { color: #00f2fe; font-size: 11px; margin: -2px 0 12px; }
+        .modal-box > #readingModeBtn { width: 100%; margin-bottom: 14px; }
         .modal-content-scroll { background-color: #090d10; border: 1px solid #21262d; border-radius: 10px; padding: 14px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #c9d1d9; line-height: 1.5; margin-bottom: 20px; white-space: pre-wrap; text-align: left; }
+        .modal-box.reading-mode { max-width: 720px; max-height: calc(100vh - 40px); overflow-y: auto; }
+        .modal-box.reading-mode .modal-title { font-size: 24px; line-height: 1.35; }
+        .modal-box.reading-mode .modal-content-scroll { max-height: 58vh; padding: 22px; font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.85; }
+        .modal-box.reading-mode .topic-rating,
+        .modal-box.reading-mode .modal-buttons > :not(#readingModeBtn) { display: none; }
+        @media (max-width: 600px) {
+            .modal-box.reading-mode { padding: 20px 16px; }
+            .modal-box.reading-mode .modal-content-scroll { max-height: 55vh; padding: 18px; font-size: 17px; }
+        }
                 .topic-rating { margin: 0 0 18px; padding: 12px; background: #090d10; border: 1px solid #21262d; border-radius: 10px; }
         .topic-rating-label { color: #c9d1d9; font-size: 13px; margin-bottom: 8px; }
         .topic-rating-stars { display: flex; gap: 8px; }
@@ -699,6 +709,7 @@
             <button class="modal-close" type="button" aria-label="Rehber penceresini kapat" onclick="closeInfoModal(null)">✕</button>
                         <div class="modal-title" id="modalTitle">Başlık</div>
             <div class="modal-reading-time" id="modalReadingTime"></div>
+                        <button class="btn-modal-share" id="readingModeBtn" type="button" aria-pressed="false" onclick="toggleReadingMode()">📖 Okuma modunu aç</button>
             <div class="highlight-box" id="modalHighlight">Vurgu Kutusu</div>
                         <div class="modal-content-scroll" id="modalText">İçerik</div>
             <div class="topic-rating" aria-label="Rehber puanlama">
@@ -1256,7 +1267,21 @@
             }
         }
 
+        function setReadingMode(enabled) {
+            const modalBox = modal.querySelector('.modal-box');
+            const button = document.getElementById('readingModeBtn');
+            modalBox.classList.toggle('reading-mode', enabled);
+            button.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+            button.textContent = enabled ? '✕ Okuma modunu kapat' : '📖 Okuma modunu aç';
+        }
+
+        function toggleReadingMode() {
+            const modalBox = modal.querySelector('.modal-box');
+            setReadingMode(!modalBox.classList.contains('reading-mode'));
+        }
+
         function openHtmlModal(element) {
+            setReadingMode(false);
             if (!modal.classList.contains('active')) modalReturnFocus = document.activeElement;
             currentTopicElement = element;
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
@@ -1278,6 +1303,7 @@
 
         function closeInfoModal(event) {
             if (event && event.target !== modal) return;
+            setReadingMode(false);
             modal.classList.remove('active');
             modal.setAttribute('aria-hidden', 'true');
             if (modalReturnFocus && typeof modalReturnFocus.focus === 'function' && modalReturnFocus.isConnected) {
