@@ -196,7 +196,20 @@
         .btn-modal-secondary { background-color: transparent; color: #ff3366; border: 1px solid rgba(255, 51, 102, 0.3); padding: 12px; border-radius: 25px; font-size: 14px; font-weight: 600; text-align: center; text-decoration: none; display: block; }
         .btn-modal-share { background: #1f242c; color: #e6edf3; border: 1px solid #30363d; padding: 12px; border-radius: 25px; font-size: 14px; font-weight: 600; cursor: pointer; }
         
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background-color: #00f2fe; color: #090d10; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; opacity: 0; transition: opacity 0.3s ease; z-index: 999999; pointer-events: none; }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background-color: #00f2fe; color: #090d10; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 700; opacity: 0; transition: opacity 0.3s ease; z-index: 999999; pointer-events: none; }
+
+/* --- LOADING / SKELETON ANİMASYONU --- */
+.skeleton-card { background: #12161a; border: 1px solid #21262d; border-radius: 20px; padding: 24px; width: 100%; }
+.skeleton-line { height: 14px; background: linear-gradient(90deg, #1c2128 25%, #262c36 50%, #1c2128 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite ease-in-out; border-radius: 6px; margin-bottom: 12px; }
+.skeleton-line:last-child { width: 65%; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* --- OKUMA MODU --- */
+.modal-reading-mode .modal-content-scroll { font-size: 18px !important; line-height: 1.8 !important; max-height: 280px !important; background-color: #0a0e12 !important; }
+.modal-reading-mode .modal-box { background-color: #0d1117 !important; }
+
+/* --- BİLDİRİM ROZETİ --- */
+.notif-dot { display: inline-flex; align-items: center; justify-content: center; background: #ff3366; color: #fff; font-size: 10px; font-weight: 800; min-width: 20px; height: 20px; border-radius: 20px; padding: 0 5px; margin-left: 6px; }
     </style>
 </head>
 <body>
@@ -206,7 +219,7 @@
         <div class="news-ticker-wrapper">
             <div class="news-ticker-label">Gündem</div>
             <div class="news-ticker-content">
-                <div class="news-ticker-text">ÇOK YAKINDA THREADS PROFİL ANALİZATÖRÜ İÇİN TANITIM PAYLAŞABİLİRİM. TAKİPTE KALIN :) </div>
+                <div class="news-ticker-text">EKİM AYINDA THREADS PROFİL ANALİZATÖRÜ İÇİN TANITIM PAYLAŞABİLİRİM. TAKİPTE KALIN :) </div>
             </div>
         </div>
 
@@ -260,7 +273,7 @@
             <div class="card-title">Paylaşılan Bilgi ve Ayarlar</div>
             <div class="card-desc">Paylaştığım tüm güncellemeler, ipuçları ve bilgiler aşağıda listelenmiştir. Konu başlığına tıklayarak detaylara erişebilirsiniz.</div>
             
-            <button class="btn-action" id="toggleLibraryBtn" onclick="toggleLibrary()">Konu Listesini Göster ▾</button>
+            <button class="btn-action" id="toggleLibraryBtn" onclick="toggleLibrary()">Konu Listesini Göster ▾ <span id="newTopicBadge" class="notif-dot" style="display:none;">0</span></button>
 
             <!-- AÇILIR PANEL -->
             <div id="libraryPanel" class="search-wrapper hidden-content">
@@ -797,6 +810,7 @@
                 <button class="btn-modal-primary" onclick="copyContentText()">📋 Metni Kopyala</button>
                 <button class="btn-modal-share" type="button" onclick="shareCurrentTopic()">🔗 Konu bağlantısını paylaş</button>
                 <button class="btn-modal-share" type="button" onclick="shareTopicImage()">🖼️ Paylaşım kartı oluştur</button>
+                <button class="btn-modal-share" type="button" id="readingModeToggle" onclick="toggleReadingMode()">🌙 Okuma modu</button>
                 <a href="#" target="_blank" class="btn-modal-secondary" id="modalLink">▷ İlgili Gönderiyi Gör</a>
             </div>
         </div>
@@ -926,6 +940,7 @@
             if (panel.classList.contains('hidden-content')) {
                 panel.classList.remove('hidden-content');
                 btn.innerText = 'Konu Listesini Gizle ▴';
+                updateNewTopicBadge(); // rozeti sıfırla
             } else {
                 panel.classList.add('hidden-content');
                 btn.innerText = `Konu Listesini Göster (${itemCount}) ▾`;
@@ -1337,6 +1352,8 @@
         }
 
         function openHtmlModal(element) {
+            // Mobil dokunma geri bildirimi (hafif titreşim)
+            if (navigator.vibrate) navigator.vibrate(12);
             if (!modal.classList.contains('active')) modalReturnFocus = document.activeElement;
             currentTopicElement = element;
             document.getElementById('modalTitle').innerText = element.getAttribute('data-title');
@@ -1418,6 +1435,59 @@
                 }
             }
                 } catch (e) {}
+
+        // --- OKUMA MODU TOGGLE ---
+        function toggleReadingMode() {
+            const modalBox = document.querySelector('.modal-box');
+            const btn = document.getElementById('readingModeToggle');
+            if (modalBox.classList.toggle('modal-reading-mode')) {
+                btn.textContent = '☀️ Normal mod';
+            } else {
+                btn.textContent = '🌙 Okuma modu';
+            }
+        }
+
+        // --- YENİ KONU ROZETİ GÜNCELLEME ---
+        function updateNewTopicBadge() {
+            const badge = document.getElementById('newTopicBadge');
+            if (!badge) return;
+            const newItems = document.querySelectorAll('#itemsContainer .nested-item[data-new="true"]');
+            const count = newItems.length;
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // --- SAYFA YÜKLENİRKEN SKELETON ---
+        function showSkeleton() {
+            const container = document.querySelector('.container');
+            if (!container) return;
+            if (document.getElementById('skeletonCard')) return;
+            const skeletonHtml = `
+                <div class="skeleton-card" id="skeletonCard">
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line"></div>
+                    <div class="skeleton-line" style="width:45%;"></div>
+                </div>`;
+            const welcome = container.querySelector('.welcome-banner');
+            if (welcome) {
+                welcome.insertAdjacentHTML('afterend', skeletonHtml);
+            }
+        }
+        function hideSkeleton() {
+            const skel = document.getElementById('skeletonCard');
+            if (skel) skel.remove();
+        }
+
+        // Sayfa yüklenince skeleton göster, 700ms sonra kaldır + rozeti güncelle
+        showSkeleton();
+        setTimeout(() => {
+            hideSkeleton();
+            updateNewTopicBadge();
+        }, 700);
 
         loadSharedTopicRatings();
 
